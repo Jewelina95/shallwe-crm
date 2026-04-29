@@ -327,6 +327,43 @@ def set_setting(key: str, value: str):
         )
 
 
+def recompute_all_interests() -> int:
+    """Re-extract interests for every contact based on profile + attendance free-text.
+
+    Returns number of contacts updated.
+    """
+    from keywords import extract_interests
+    updated = 0
+    with get_conn() as conn:
+        contacts = conn.execute("SELECT id, role_title, organization, professional_category FROM contacts").fetchall()
+        for c in contacts:
+            att = conn.execute(
+                "SELECT motivation, questions_for_speakers, experience FROM event_attendance WHERE contact_id = ?",
+                (c["id"],),
+            ).fetchall()
+            blob = " ".join(filter(None, [c["role_title"], c["organization"], c["professional_category"]]))
+            for a in att:
+                blob += " " + " ".join(filter(None, [a["motivation"], a["questions_for_speakers"], a["experience"]]))
+            tags = extract_interests(blob)
+            tag_str = ",".join(tags)
+            conn.execute("UPDATE contacts SET interests = ? WHERE id = ?", (tag_str, c["id"]))
+            updated += 1
+    return updated
+
+
+def all_interest_tags() -> list[str]:
+    """Distinct interest tags currently stored across all contacts."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT DISTINCT interests FROM contacts WHERE interests IS NOT NULL AND interests != ''").fetchall()
+    tags = set()
+    for r in rows:
+        for t in (r["interests"] or "").split(","):
+            t = t.strip()
+            if t:
+                tags.add(t)
+    return sorted(tags)
+
+
 def stats() -> dict:
     with get_conn() as conn:
         c = conn.execute("SELECT COUNT(*) AS c FROM contacts").fetchone()["c"]

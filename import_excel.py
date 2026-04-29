@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 import db
+from keywords import extract_interests
 
 
 # Sheet -> event metadata. Update this if you add new sheets.
@@ -73,6 +74,16 @@ def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_
         mandarin = _bool_zh(r.get("Please Confirm you can speak Mandarin!"))
         utm = _str(r.get("utm_source"))
 
+        # Extract interests from this row's free-text answers + profile
+        text_for_tags = " ".join(filter(None, [
+            _str(r.get("Tell us your experience in AI/Tech field")),
+            _str(r.get("What is your experience level with Vibe Coding")),
+            _str(r.get("What drive you to join this event?")),
+            _str(r.get("What questions you have for our speakers?")),
+            role_title, organization, professional,
+        ]))
+        new_tags = set(extract_interests(text_for_tags))
+
         contact_data = {
             "email": email,
             "first_name": first_name,
@@ -87,6 +98,13 @@ def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_
             "source": utm or "luma",
         }
         cid = db.upsert_contact(contact_data)
+
+        # Merge interests with whatever was previously stored (so multi-event signals accumulate)
+        if new_tags:
+            existing = db.get_contact(cid).get("interests") or ""
+            existing_set = {t.strip() for t in existing.split(",") if t.strip()}
+            merged = sorted(existing_set | new_tags)
+            db.upsert_contact({"email": email, "interests": ",".join(merged)})
 
         # Build custom data: stash everything that didn't fit into a standard column
         custom = {}

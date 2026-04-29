@@ -1,53 +1,83 @@
-"""Email - one-click broadcast with templates and variable substitution."""
+"""Email - one-click broadcast with multi-dimensional segment targeting."""
 from __future__ import annotations
 import streamlit as st
 import pandas as pd
 
 import db
 import email_sender as mailer
+import segments
 
 st.set_page_config(page_title="Email · ShallWe CRM", page_icon="✉️", layout="wide")
 db.init_db()
 
 st.title("✉️ Email Broadcast")
-st.caption("Pick a segment, pick or write a template, preview, send.")
+st.caption("Pick a segment by interest / profession / event / language → render template → preview → one-click send.")
 
-# Build segment
-st.subheader("1. Choose recipients")
+df_full = segments.enriched_contacts()
+if df_full.empty:
+    st.warning("No contacts. Go to **Settings → Import** first.")
+    st.stop()
+
+# ===== 1. Segment =====
+st.subheader("1. Build the segment")
+
+all_interests = db.all_interest_tags()
+all_pros = sorted(x for x in df_full["professional_category"].unique() if x)
+all_orgs = sorted(x for x in df_full["organization"].unique() if x)
+all_sources = sorted(x for x in df_full["source"].unique() if x)
 events = db.list_events()
-event_lookup = {"All contacts": None, **{f"Event: {e['name']}": e["id"] for e in events}}
+event_options = {e["name"]: e["id"] for e in events}
 
 c1, c2, c3 = st.columns(3)
-seg = c1.selectbox("Segment", list(event_lookup.keys()))
-contacts_all = db.list_contacts()
-df_all = pd.DataFrame(contacts_all) if contacts_all else pd.DataFrame()
-pro_options = ["All categories"] + sorted(
-    [x for x in (df_all.get("professional_category", pd.Series()).dropna().unique() if not df_all.empty else []) if x]
-)
-pro = c2.selectbox("Professional category", pro_options)
-mandarin = c3.selectbox("Language", ["Any", "Mandarin only", "Non-Mandarin only"])
+with c1:
+    interest_tags = st.multiselect("Interests (any of)", all_interests)
+    pro_cats = st.multiselect("Professional category", all_pros)
+with c2:
+    pick_events = st.multiselect("Attended event", list(event_options.keys()))
+    pick_orgs = st.multiselect("Organization", all_orgs)
+with c3:
+    mandarin = st.radio("Language", ["Any", "Mandarin only", "Non-Mandarin only"], horizontal=False)
+    pick_sources = st.multiselect("Source / channel", all_sources)
+
+c4, c5, c6 = st.columns(3)
+has_linkedin = c4.checkbox("Has LinkedIn URL")
+min_events = c5.slider("Min events attended", 0, max(int(df_full["events_attended"].max() or 0), 1), 0)
+approval = c6.selectbox("Approval status", ["", "approved", "declined", "waitlist", "pending"])
 
 filters = {
-    "event_id": event_lookup[seg],
-    "professional_category": None if pro == "All categories" else pro,
+    "interest_tags": interest_tags,
+    "professional_categories": pro_cats,
+    "event_ids": [event_options[n] for n in pick_events],
+    "organizations": pick_orgs,
+    "sources": pick_sources,
     "mandarin_only": mandarin == "Mandarin only",
+    "non_mandarin_only": mandarin == "Non-Mandarin only",
+    "has_linkedin": has_linkedin,
+    "min_events_attended": min_events,
+    "approval_status": approval or None,
 }
-recipients = db.list_contacts(filters)
-if mandarin == "Non-Mandarin only":
-    recipients = [r for r in recipients if not r.get("mandarin_speaker")]
-recipients = [r for r in recipients if (r.get("email") or "").strip()]
+seg = segments.apply_filters(df_full, filters)
+recipients = seg[seg["email"].fillna("").str.strip() != ""].to_dict("records")
 
-st.info(f"**{len(recipients)} recipients** match this segment.")
+st.info(f"📬 **{len(recipients)} recipients** match this segment.")
 if recipients:
     with st.expander("Preview recipient list"):
         st.dataframe(
-            pd.DataFrame(recipients)[["full_name", "email", "professional_category", "organization"]],
+            segments.to_export_df(seg)[["Name", "Email", "Professional Category", "Organization", "Interests", "Events Attended"]],
             use_container_width=True, hide_index=True,
         )
+    # Allow downloading the targeted list before sending
+    xlsx_bytes = segments.to_excel_bytes(segments.to_export_df(seg), sheet_name="Recipients")
+    st.download_button(
+        "⬇️ Download segment as Excel",
+        xlsx_bytes,
+        file_name=f"recipients_{len(recipients)}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 st.divider()
 
-# Template
+# ===== 2. Compose =====
 st.subheader("2. Compose")
 templates = db.list_templates()
 tpl_lookup = {"(blank)": None, **{f"📄 {t['name']}": t["id"] for t in templates}}
@@ -62,9 +92,9 @@ body = st.text_area("Body", value=init_body, height=260,
                     help="Use {{first_name}}, {{full_name}}, {{organization}}, {{role_title}}, etc.")
 html_mode = st.checkbox("Send as HTML")
 
-st.markdown("**Available variables:** `{{first_name}}` `{{full_name}}` `{{email}}` `{{organization}}` `{{role_title}}` `{{professional_category}}`")
+st.markdown("**Variables:** `{{first_name}}` `{{full_name}}` `{{email}}` `{{organization}}` `{{role_title}}` `{{professional_category}}` `{{interests}}`")
 
-# Preview
+# ===== 3. Preview =====
 if recipients:
     st.subheader("3. Preview (first recipient)")
     preview = recipients[0]
@@ -75,7 +105,7 @@ if recipients:
 
 st.divider()
 
-# Send
+# ===== 4. Send =====
 st.subheader("4. Send")
 cfg = mailer.get_smtp_config()
 if not cfg["from_email"] or not cfg["host"]:
@@ -85,7 +115,8 @@ confirm = st.checkbox(f"Confirm I want to email **{len(recipients)}** people")
 btn_col1, btn_col2 = st.columns([1, 4])
 test_mode = btn_col2.checkbox("Test mode — only send to first recipient")
 
-if btn_col1.button("🚀 Send now", type="primary", disabled=not confirm or not subject or not body or not recipients):
+if btn_col1.button("🚀 Send now", type="primary",
+                   disabled=not confirm or not subject or not body or not recipients):
     targets = recipients[:1] if test_mode else recipients
     with st.spinner(f"Sending to {len(targets)}…"):
         result = mailer.send_bulk(targets, subject, body, html=html_mode)
@@ -99,7 +130,7 @@ if btn_col1.button("🚀 Send now", type="primary", disabled=not confirm or not 
 
 st.divider()
 
-# Log
+# ===== Log =====
 st.subheader("Recent send log")
 log = db.list_email_log(100)
 if log:

@@ -12,7 +12,22 @@ db.init_db()
 
 st.title("⚙️ Settings")
 
-tab1, tab2, tab3 = st.tabs(["📥 Import", "📧 SMTP", "🧹 Database"])
+tab1, tab_int, tab2, tab3 = st.tabs(["📥 Import", "🏷️ Interests", "📧 SMTP", "🧹 Database"])
+
+with tab_int:
+    st.subheader("Re-extract interest tags for all contacts")
+    st.caption(
+        "Scans every contact's profile + event answers for AI-domain keywords (LLM, Agent, World Model, "
+        "Robotics, Quant, Founder, etc.) and stores them in the `interests` column. Run this if you've "
+        "changed `keywords.py` or imported new data."
+    )
+    if st.button("🔄 Re-extract now", type="primary"):
+        with st.spinner("Scanning…"):
+            n = db.recompute_all_interests()
+        st.success(f"Updated {n:,} contacts.")
+    tags = db.all_interest_tags()
+    if tags:
+        st.markdown("**Currently stored tags:** " + " ".join(f"`{t}`" for t in tags))
 
 # -------- 1. Import --------
 with tab1:

@@ -1,4 +1,4 @@
-"""Contacts page - HubSpot-style audience browser with filters and detail drawer."""
+"""Contacts page - powerful multi-filter audience browser with Excel export."""
 from __future__ import annotations
 import json
 import pandas as pd
@@ -6,96 +6,116 @@ import streamlit as st
 
 import db
 from keywords import extract_interests
+import segments
 
 st.set_page_config(page_title="Contacts · ShallWe CRM", page_icon="👥", layout="wide")
 db.init_db()
 
 st.title("👥 Contacts")
-st.caption("Search, segment, and drill into your audience.")
+st.caption("Filter by interest, profession, organization, event, source… then download as Excel.")
+
+df_full = segments.enriched_contacts()
+if df_full.empty:
+    st.warning("No contacts yet. Go to **Settings → Import** first.")
+    st.stop()
 
 # ---- Sidebar filters ----
-all_contacts = db.list_contacts()
-df_all = pd.DataFrame(all_contacts) if all_contacts else pd.DataFrame()
+all_interests = db.all_interest_tags()
+all_pros = sorted(x for x in df_full["professional_category"].unique() if x)
+all_orgs = sorted(x for x in df_full["organization"].unique() if x)
+all_sources = sorted(x for x in df_full["source"].unique() if x)
+events = db.list_events()
+event_options = {e["name"]: e["id"] for e in events}
 
 with st.sidebar:
-    st.header("Filters")
-    search = st.text_input("Search", placeholder="name, email, org…")
-    pro_options = ["All"] + sorted(
-        [x for x in (df_all.get("professional_category", pd.Series()).dropna().unique() if not df_all.empty else []) if x]
+    st.header("🔍 Filters")
+    search = st.text_input("Search", placeholder="name, email, org, role…")
+
+    interest_tags = st.multiselect(
+        "Interests (any of)",
+        options=all_interests,
+        help="Auto-extracted from registration answers + profile.",
     )
-    pro = st.selectbox("Professional category", pro_options)
-    events = db.list_events()
-    event_lookup = {"All": None, **{e["name"]: e["id"] for e in events}}
-    sel_event = st.selectbox("Attended event", list(event_lookup.keys()))
-    mandarin_only = st.checkbox("Mandarin speakers only")
+    pro_cats = st.multiselect("Professional category", options=all_pros)
+    pick_events = st.multiselect("Attended event", options=list(event_options.keys()))
+    pick_orgs = st.multiselect("Organization", options=all_orgs)
+    pick_sources = st.multiselect("Source / channel", options=all_sources)
+
+    st.divider()
+    mandarin = st.radio("Language", ["Any", "Mandarin only", "Non-Mandarin only"], horizontal=False)
+    has_linkedin = st.checkbox("Has LinkedIn URL")
+    min_events = st.slider("Min events attended", 0, max(int(df_full["events_attended"].max() or 0), 1), 0)
+    approval = st.selectbox("Approval status (any event)", ["", "approved", "declined", "waitlist", "pending"])
 
 filters = {
     "search": search,
-    "professional_category": pro,
-    "event_id": event_lookup[sel_event],
-    "mandarin_only": mandarin_only,
+    "interest_tags": interest_tags,
+    "professional_categories": pro_cats,
+    "event_ids": [event_options[n] for n in pick_events],
+    "organizations": pick_orgs,
+    "sources": pick_sources,
+    "mandarin_only": mandarin == "Mandarin only",
+    "non_mandarin_only": mandarin == "Non-Mandarin only",
+    "has_linkedin": has_linkedin,
+    "min_events_attended": min_events,
+    "approval_status": approval or None,
 }
-contacts = db.list_contacts(filters)
 
-# ---- Build display dataframe with engagement score ----
-if contacts:
-    df = pd.DataFrame(contacts)
-    # attendance counts per contact
-    with db.get_conn() as conn:
-        att_counts = pd.read_sql_query(
-            "SELECT contact_id, COUNT(*) AS events_attended, "
-            "SUM(CASE WHEN approval_status='approved' THEN 1 ELSE 0 END) AS approved_count, "
-            "SUM(CASE WHEN checked_in_at IS NOT NULL AND checked_in_at != '' THEN 1 ELSE 0 END) AS checkin_count "
-            "FROM event_attendance GROUP BY contact_id",
-            conn,
-        )
-    df = df.merge(att_counts, left_on="id", right_on="contact_id", how="left").fillna(
-        {"events_attended": 0, "approved_count": 0, "checkin_count": 0}
-    )
-    df["engagement"] = (
-        df["events_attended"].astype(int)
-        + df["approved_count"].astype(int)
-        + df["checkin_count"].astype(int) * 2
-    )
+filtered = segments.apply_filters(df_full, filters)
+
+# ---- Filter chips ----
+active_chips = []
+if interest_tags: active_chips.append(f"💡 {len(interest_tags)} interests")
+if pro_cats:      active_chips.append(f"🏷️ {len(pro_cats)} categories")
+if pick_events:   active_chips.append(f"📅 {len(pick_events)} events")
+if pick_orgs:     active_chips.append(f"🏢 {len(pick_orgs)} orgs")
+if pick_sources:  active_chips.append(f"📥 {len(pick_sources)} sources")
+if mandarin != "Any": active_chips.append(f"🀄 {mandarin}")
+if has_linkedin:  active_chips.append("🔗 has LinkedIn")
+if min_events:    active_chips.append(f"🎯 ≥{min_events} events")
+if approval:      active_chips.append(f"✅ approval: {approval}")
+if search:        active_chips.append(f"🔎 '{search}'")
+
+c_top1, c_top2 = st.columns([3, 2])
+c_top1.subheader(f"{len(filtered):,} of {len(df_full):,} contacts")
+if active_chips:
+    c_top2.markdown(" · ".join(active_chips))
+
+# ---- Table ----
+display = segments.to_export_df(filtered)
+st.dataframe(
+    display.drop(columns=["Notes", "Manual Tags", "Created"], errors="ignore"),
+    use_container_width=True,
+    hide_index=True,
+    height=480,
+)
+
+# ---- Export buttons ----
+st.subheader("⬇️ Download segment")
+col_x, col_c, col_l = st.columns(3)
+xlsx_bytes = segments.to_excel_bytes(display, sheet_name="Segment")
+col_x.download_button(
+    "📊 Download as Excel (.xlsx)",
+    xlsx_bytes,
+    file_name=f"shallwe_segment_{len(display)}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    type="primary",
+)
+csv_bytes = display.to_csv(index=False).encode("utf-8")
+col_c.download_button("📄 CSV", csv_bytes, file_name=f"shallwe_segment_{len(display)}.csv", mime="text/csv")
+emails_only = "\n".join(display["Email"].dropna().astype(str).tolist())
+col_l.download_button("✉️ Email list (.txt)", emails_only.encode("utf-8"),
+                      file_name=f"shallwe_emails_{len(display)}.txt", mime="text/plain")
+
+st.divider()
+
+# ---- Detail drawer ----
+st.subheader("Contact detail")
+if filtered.empty:
+    st.caption("No contact selected.")
 else:
-    df = pd.DataFrame()
-
-st.subheader(f"{len(df):,} contacts")
-
-if df.empty:
-    st.info("No contacts match. Go to **Settings → Import** to load your Luma xlsx, or clear filters.")
-else:
-    show = df[[
-        "id", "full_name", "email", "professional_category", "organization",
-        "role_title", "events_attended", "engagement", "mandarin_speaker", "linkedin",
-    ]].rename(columns={
-        "full_name": "Name",
-        "email": "Email",
-        "professional_category": "Category",
-        "organization": "Organization",
-        "role_title": "Role",
-        "events_attended": "Events",
-        "engagement": "Score",
-        "mandarin_speaker": "中文",
-        "linkedin": "LinkedIn",
-    })
-    show["中文"] = show["中文"].apply(lambda x: "✅" if x else "")
-    st.dataframe(
-        show.drop(columns=["id"]),
-        use_container_width=True,
-        hide_index=True,
-        height=480,
-    )
-
-    # Export
-    csv = show.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Export filtered to CSV", csv, "contacts_export.csv", "text/csv")
-
-    st.divider()
-
-    # ---- Detail drawer ----
-    st.subheader("Contact detail")
-    name_to_id = {f"{r['full_name'] or '(no name)'} · {r['email']}": int(r["id"]) for _, r in df.iterrows()}
+    name_to_id = {f"{r['full_name'] or '(no name)'} · {r['email']}": int(r["id"])
+                  for _, r in filtered.iterrows()}
     pick = st.selectbox("Select a contact", list(name_to_id.keys()))
     if pick:
         cid = name_to_id[pick]
@@ -105,32 +125,18 @@ else:
         with col_a:
             st.markdown(f"### {c.get('full_name') or '(no name)'}")
             st.markdown(f"**📧** {c['email']}")
-            if c.get("linkedin"):
-                st.markdown(f"**🔗** {c['linkedin']}")
-            if c.get("phone"):
-                st.markdown(f"**📞** {c['phone']}")
-            if c.get("organization"):
-                st.markdown(f"**🏢** {c['organization']}")
-            if c.get("role_title"):
-                st.markdown(f"**💼** {c['role_title']}")
-            if c.get("professional_category"):
-                st.markdown(f"**🏷️** {c['professional_category']}")
-            if c.get("mandarin_speaker"):
-                st.markdown("**🀄** Speaks Mandarin")
+            if c.get("linkedin"): st.markdown(f"**🔗** {c['linkedin']}")
+            if c.get("phone"): st.markdown(f"**📞** {c['phone']}")
+            if c.get("organization"): st.markdown(f"**🏢** {c['organization']}")
+            if c.get("role_title"): st.markdown(f"**💼** {c['role_title']}")
+            if c.get("professional_category"): st.markdown(f"**🏷️** {c['professional_category']}")
+            if c.get("mandarin_speaker"): st.markdown("**🀄** Speaks Mandarin")
             st.markdown(f"**Source:** {c.get('source') or '—'}")
 
-            # Derived interests across all attendance free-text
-            blob = " ".join(
-                str(a.get(k) or "")
-                for a in att
-                for k in ("motivation", "questions_for_speakers", "experience")
-            )
-            blob += " " + " ".join(filter(None, [c.get("role_title"), c.get("professional_category"), c.get("organization")]))
-            tags = extract_interests(blob)
-            if tags:
-                st.markdown("**Inferred interests:** " + " ".join(f"`{t}`" for t in tags))
+            if c.get("interests"):
+                st.markdown("**Interests:** " + " ".join(f"`{t.strip()}`" for t in c["interests"].split(",") if t.strip()))
 
-            with st.expander("Edit notes / tags"):
+            with st.expander("Edit notes / manual tags"):
                 notes = st.text_area("Notes", value=c.get("notes") or "")
                 tags_in = st.text_input("Manual tags (comma-sep)", value=c.get("tags") or "")
                 if st.button("Save", key=f"save_{cid}"):
@@ -177,7 +183,7 @@ with st.expander("➕ Add a contact manually"):
             ["", "Academic Researcher", "Enterprise Professional", "Student", "Investor", "Founder", "Other"],
         )
         linkedin = c2.text_input("LinkedIn URL")
-        mandarin = st.checkbox("Speaks Mandarin")
+        mandarin_in = st.checkbox("Speaks Mandarin")
         tags_in = st.text_input("Tags (comma-sep)")
         notes = st.text_area("Notes")
         submit = st.form_submit_button("Create contact")
@@ -188,7 +194,7 @@ with st.expander("➕ Add a contact manually"):
                 "first_name": first_name, "last_name": last_name,
                 "organization": org, "role_title": role,
                 "professional_category": cat, "linkedin": linkedin,
-                "mandarin_speaker": 1 if mandarin else 0,
+                "mandarin_speaker": 1 if mandarin_in else 0,
                 "tags": tags_in, "notes": notes, "source": "manual",
             })
             st.success("Contact created.")
