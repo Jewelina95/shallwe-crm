@@ -1,0 +1,25 @@
+# --- DATA WITH PII (DO NOT COMMIT) ---
+*.db
+*.sqlite
+*.sqlite3
+*.xlsx
+*.xls
+*.csv
+
+# --- Python ---
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Streamlit ---
+.streamlit/secrets.toml
+
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
