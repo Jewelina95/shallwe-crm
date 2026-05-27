@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShallWe Tech Audience CRM</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark">SW</span>
+        <div>
+          <strong>ShallWe Tech</strong>
+          <small>Audience CRM</small>
+        </div>
+      </div>
+      <nav>
+        <button class="nav active" data-view="dashboard">Dashboard</button>
+        <button class="nav" data-view="contacts">Contacts</button>
+        <button class="nav" data-view="segments">Segments</button>
+        <button class="nav" data-view="profile">Profile</button>
+      </nav>
+      <div class="data-warning">
+        <strong>Private data</strong>
+        <span id="dataMode">Loading sample data</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>Audience Operations</h1>
+          <p>Classify, segment, and export targeted email lists.</p>
+        </div>
+        <div class="actions">
+          <button id="exportCsv">Export CSV</button>
+          <button id="exportEmails" class="primary">Copy Emails</button>
+        </div>
+      </header>
+
+      <section class="filters">
+        <label>
+          Search
+          <input id="search" type="search" placeholder="name, email, org, role, interest" />
+        </label>
+        <label>
+          Persona
+          <select id="persona"></select>
+        </label>
+        <label>
+          Lifecycle
+          <select id="lifecycle"></select>
+        </label>
+        <label>
+          Interest
+          <select id="interest"></select>
+        </label>
+        <label>
+          Engagement
+          <select id="engagement"></select>
+        </label>
+        <label>
+          Email readiness
+          <select id="readiness"></select>
+        </label>
+      </section>
+
+      <section id="dashboard" class="view active">
+        <div class="kpis" id="kpis"></div>
+        <div class="grid two">
+          <article class="panel">
+            <h2>Persona Mix</h2>
+            <div id="personaChart" class="bars"></div>
+          </article>
+          <article class="panel">
+            <h2>High Value Segments</h2>
+            <div id="segmentCards" class="segment-cards"></div>
+          </article>
+        </div>
+        <div class="grid two">
+          <article class="panel">
+            <h2>Top Organizations</h2>
+            <div id="orgChart" class="bars"></div>
+          </article>
+          <article class="panel">
+            <h2>Interest Signals</h2>
+            <div id="interestChart" class="chips"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="contacts" class="view">
+        <div class="table-tools">
+          <strong id="resultCount">0 contacts</strong>
+          <span id="activeRule"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Persona</th>
+                <th>Lifecycle</th>
+                <th>Organization</th>
+                <th>Interests</th>
+                <th>Score</th>
+                <th>Readiness</th>
+              </tr>
+            </thead>
+            <tbody id="contactRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="segments" class="view">
+        <div class="saved-segments" id="savedSegments"></div>
+      </section>
+
+      <section id="profile" class="view">
+        <div id="profilePane" class="profile-empty">Select a contact from Contacts.</div>
+      </section>
+    </main>
+
+    <script src="data/sample-data.js"></script>
+    <script src="data/loader.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

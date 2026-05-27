@@ -5,6 +5,7 @@
 *.xlsx
 *.xls
 *.csv
+web/data/*.private.js
 
 # --- Python ---
 .venv/
