@@ -19,27 +19,27 @@ const taxonomy = {
 
 const segmentPresets = [
   {
-    name: "Speaker Prospects",
-    description: "Founders, researchers, senior leaders with strong engagement.",
+    name: "Speaker prospects",
+    description: "Founders, researchers, and senior leaders worth inviting as speakers or panelists.",
     rule: c => ["Founder / Operator", "Researcher / Academic", "Enterprise Leader"].includes(c.persona) && c.score >= 5
   },
   {
-    name: "AI Builder Workshop Audience",
-    description: "Engineers, builders, vibe-coding users, agent/product interests.",
+    name: "AI builder workshop audience",
+    description: "Engineers, builders, vibe-coding users, and people showing agent/product signals.",
     rule: c => c.persona === "AI Builder / Engineer" || hasAny(c.interestList, ["agents", "coding", "product", "developer tools"])
   },
   {
-    name: "Mandarin Community Core",
+    name: "Mandarin community core",
     description: "Mandarin-speaking active members for Chinese-language campaigns.",
     rule: c => c.mandarin_speaker && c.score >= 3
   },
   {
-    name: "Sponsor / Partner Leads",
-    description: "Investors, enterprise leaders, operators, and ecosystem contacts.",
+    name: "Sponsor / partner leads",
+    description: "Investors, enterprise leaders, founders, and ecosystem contacts.",
     rule: c => ["Investor / Ecosystem", "Enterprise Leader", "Founder / Operator"].includes(c.persona)
   },
   {
-    name: "Reactivation List",
+    name: "Reactivation list",
     description: "Known contacts with low attendance or no check-in signal.",
     rule: c => c.lifecycle === "Prospect" || c.engagement === "Cold"
   }
@@ -134,7 +134,7 @@ function render() {
   renderProfile();
   document.getElementById("dataMode").textContent = window.SHALLWE_PRIVATE_DATA
     ? `Private dataset loaded: ${contacts.length} contacts`
-    : "Sample data only. Run scripts/export_static_data.py for real data.";
+    : "Public demo data. Real customer data stays private.";
 }
 
 function setupControls() {
@@ -277,10 +277,10 @@ function renderProfile() {
         <dt>LinkedIn</dt><dd>${c.linkedin ? `<a href="${escapeAttr(c.linkedin)}" target="_blank" rel="noreferrer">${escapeHtml(c.linkedin)}</a>` : "-"}</dd>
         <dt>Interests</dt><dd>${c.interestList.map(t => `<span class="mini-chip">${escapeHtml(t)}</span>`).join("") || "-"}</dd>
       </dl>
-      <label>Lifecycle
+      <label>Stage
         <select id="editLifecycle">${taxonomy.lifecycle.map(x => `<option ${x === c.lifecycle ? "selected" : ""}>${x}</option>`).join("")}</select>
       </label>
-      <label>Audience type
+      <label>Audience Type
         <select id="editPersona">${taxonomy.personas.map(x => `<option ${x === c.persona ? "selected" : ""}>${x}</option>`).join("")}</select>
       </label>
       <label>Manual tags
@@ -323,7 +323,7 @@ function exportCsv() {
     Name: c.displayName,
     Email: c.email,
     "Audience Type": c.persona,
-    Lifecycle: c.lifecycle,
+    Stage: c.lifecycle,
     Engagement: c.engagement,
     Readiness: c.readiness,
     Organization: c.organization || "",
@@ -340,7 +340,7 @@ async function copyEmails() {
   const emails = filtered.filter(c => c.readiness === "Ready").map(c => c.email).filter(Boolean).join("\n");
   await navigator.clipboard.writeText(emails);
   document.getElementById("exportEmails").textContent = `Copied ${emails ? emails.split("\n").length : 0}`;
-  setTimeout(() => document.getElementById("exportEmails").textContent = "Copy Emails", 1200);
+  setTimeout(() => document.getElementById("exportEmails").textContent = "Copy Email List", 1200);
 }
 
 function switchView(id) {

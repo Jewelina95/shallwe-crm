@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ShallWe Tech Audience CRM</title>
+    <title>ShallWe Tech Community CRM</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,7 +12,7 @@
         <span class="mark">SW</span>
         <div>
           <strong>ShallWe Tech</strong>
-          <small>Audience CRM</small>
+          <small>Community CRM</small>
         </div>
       </div>
       <nav>
@@ -30,12 +30,12 @@
     <main>
       <header class="topbar">
         <div>
-          <h1>Audience Operations</h1>
-          <p>Classify, segment, and export targeted email lists.</p>
+          <h1>ShallWe Tech Community CRM</h1>
+          <p>把活动报名者转成可运营的 audience：分类、筛选、分层触达、导出邮件名单。</p>
         </div>
         <div class="actions">
           <button id="exportCsv">Export CSV</button>
-          <button id="exportEmails" class="primary">Copy Emails</button>
+          <button id="exportEmails" class="primary">Copy Email List</button>
         </div>
       </header>
 
@@ -45,23 +45,23 @@
           <input id="search" type="search" placeholder="name, email, org, role, interest" />
         </label>
         <label>
-          Audience type
+          Audience Type
           <select id="persona"></select>
         </label>
         <label>
-          Lifecycle
+          Stage
           <select id="lifecycle"></select>
         </label>
         <label>
-          Interest
+          Interest Signal
           <select id="interest"></select>
         </label>
         <label>
-          Engagement
+          Engagement Tier
           <select id="engagement"></select>
         </label>
         <label>
-          Email readiness
+          Email Readiness
           <select id="readiness"></select>
         </label>
       </section>
@@ -74,7 +74,7 @@
             <div id="personaChart" class="bars"></div>
           </article>
           <article class="panel">
-            <h2>High Value Segments</h2>
+            <h2>Ready-to-use Segments</h2>
             <div id="segmentCards" class="segment-cards"></div>
           </article>
         </div>
@@ -84,7 +84,7 @@
             <div id="orgChart" class="bars"></div>
           </article>
           <article class="panel">
-            <h2>Interest Signals</h2>
+            <h2>Topic Signals</h2>
             <div id="interestChart" class="chips"></div>
           </article>
         </div>
@@ -101,7 +101,7 @@
               <tr>
                 <th>Name</th>
                 <th>Audience Type</th>
-                <th>Lifecycle</th>
+                <th>Stage</th>
                 <th>Organization</th>
                 <th>Interests</th>
                 <th>Score</th>
