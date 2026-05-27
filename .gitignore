@@ -6,6 +6,7 @@
 *.xls
 *.csv
 web/data/*.private.js
+web/data/private.passphrase.txt
 
 # --- Python ---
 .venv/
