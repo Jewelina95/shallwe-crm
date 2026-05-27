@@ -7,6 +7,7 @@ Auto-detects sheets and merges rows by email (one contact, many event attendance
 """
 from __future__ import annotations
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -35,6 +36,28 @@ def _str(x):
 def _bool_zh(x):
     s = _str(x)
     return 1 if s in ("是", "Yes", "yes", "Y", "true", "True", "1") else 0
+
+
+PERSONAL_EMAIL_DOMAINS = {
+    "gmail.com", "outlook.com", "hotmail.com", "qq.com", "163.com", "126.com",
+    "icloud.com", "yahoo.com", "yahoo.co.uk", "live.com", "hotmail.co.uk", "proton.me",
+    "protonmail.com", "foxmail.com",
+}
+
+
+def infer_company_website(email: str | None, organization: str | None) -> str | None:
+    org = organization or ""
+    url = re.search(r"https?://[^\s,;]+", org)
+    if url:
+        return url.group(0).rstrip(").]")
+    www = re.search(r"\bwww\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", org)
+    if www:
+        return "https://" + www.group(0)
+    if email and "@" in email:
+        domain = email.split("@")[-1].strip().lower()
+        if domain and domain not in PERSONAL_EMAIL_DOMAINS:
+            return "https://" + domain
+    return None
 
 
 def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_desc: str):
@@ -91,6 +114,7 @@ def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_
             "full_name": full_name,
             "phone": phone,
             "linkedin": linkedin,
+            "company_website": infer_company_website(email, organization),
             "organization": organization,
             "role_title": role_title,
             "professional_category": professional,
@@ -160,7 +184,7 @@ def import_non_luma_emails(df: pd.DataFrame):
             skipped += 1
             continue
         try:
-            db.upsert_contact({"email": email, "source": "non-luma"})
+            db.upsert_contact({"email": email, "company_website": infer_company_website(email, None), "source": "non-luma"})
             inserted += 1
         except Exception:
             skipped += 1

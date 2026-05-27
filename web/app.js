@@ -86,6 +86,7 @@ function enrichContact(contact, attendance) {
     email: (contact.email || "").toLowerCase(),
     displayName: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "(No name)",
     interestList,
+    companyWebsite: inferCompanyWebsite(contact),
     persona,
     lifecycle,
     engagement,
@@ -222,6 +223,8 @@ function renderContacts() {
   document.getElementById("contactRows").innerHTML = filtered.slice(0, 500).map(c => `
     <tr data-id="${c.id}">
       <td><strong>${escapeHtml(c.displayName)}</strong><small>${escapeHtml(c.email)}</small></td>
+      <td>${linkCell(c.linkedin, "LinkedIn")}</td>
+      <td>${linkCell(c.companyWebsite, "Website")}</td>
       <td>${badge(c.persona)}</td>
       <td>${badge(c.lifecycle)}</td>
       <td>${escapeHtml(c.organization || "")}<small>${escapeHtml(c.role_title || "")}</small></td>
@@ -275,6 +278,7 @@ function renderProfile() {
         <dt>Organization</dt><dd>${escapeHtml(c.organization || "-")}</dd>
         <dt>Role</dt><dd>${escapeHtml(c.role_title || "-")}</dd>
         <dt>LinkedIn</dt><dd>${c.linkedin ? `<a href="${escapeAttr(c.linkedin)}" target="_blank" rel="noreferrer">${escapeHtml(c.linkedin)}</a>` : "-"}</dd>
+        <dt>Website</dt><dd>${c.companyWebsite ? `<a href="${escapeAttr(c.companyWebsite)}" target="_blank" rel="noreferrer">${escapeHtml(c.companyWebsite)}</a>` : "-"}</dd>
         <dt>Interests</dt><dd>${c.interestList.map(t => `<span class="mini-chip">${escapeHtml(t)}</span>`).join("") || "-"}</dd>
       </dl>
       <label>Stage
@@ -323,6 +327,8 @@ function exportCsv() {
     Name: c.displayName,
     Email: c.email,
     "Audience Type": c.persona,
+    LinkedIn: c.linkedin || "",
+    "Company / Org Website": c.companyWebsite || "",
     Stage: c.lifecycle,
     Engagement: c.engagement,
     Readiness: c.readiness,
@@ -362,6 +368,28 @@ function metric(label, value) {
 
 function badge(text) {
   return `<span class="badge">${escapeHtml(text || "")}</span>`;
+}
+
+function linkCell(url, label) {
+  const value = String(url || "").trim();
+  if (!value) return '<span class="muted">-</span>';
+  return `<a href="${escapeAttr(value)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+}
+
+function inferCompanyWebsite(c) {
+  if (c.company_website) return c.company_website;
+  const org = String(c.organization || "");
+  const url = org.match(/https?:\/\/[^\s,;]+/);
+  if (url) return url[0].replace(/[).\\]]+$/, "");
+  const www = org.match(/\bwww\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
+  if (www) return "https://" + www[0];
+  const email = String(c.email || "").toLowerCase();
+  const personal = new Set(["gmail.com", "outlook.com", "hotmail.com", "qq.com", "163.com", "126.com", "icloud.com", "yahoo.com", "yahoo.co.uk", "live.com", "hotmail.co.uk", "proton.me", "protonmail.com", "foxmail.com"]);
+  if (email.includes("@")) {
+    const domain = email.split("@").pop();
+    if (domain && !personal.has(domain)) return "https://" + domain;
+  }
+  return "";
 }
 
 function fillSelect(id, options) {

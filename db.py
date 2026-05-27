@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     full_name TEXT,
     phone TEXT,
     linkedin TEXT,
+    company_website TEXT,
     organization TEXT,
     role_title TEXT,
     professional_category TEXT,
@@ -102,6 +103,7 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        ensure_columns(conn)
         # Seed default templates if empty
         cur = conn.execute("SELECT COUNT(*) AS c FROM email_templates")
         if cur.fetchone()["c"] == 0:
@@ -111,6 +113,12 @@ def init_db():
                     "INSERT INTO email_templates(name,subject,body,created_at,updated_at) VALUES(?,?,?,?,?)",
                     (name, subj, body, now, now),
                 )
+
+
+def ensure_columns(conn):
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(contacts)").fetchall()}
+    if "company_website" not in existing:
+        conn.execute("ALTER TABLE contacts ADD COLUMN company_website TEXT")
 
 
 DEFAULT_TEMPLATES = [
@@ -143,7 +151,7 @@ def upsert_contact(data: dict) -> int:
         cur = conn.execute("SELECT id FROM contacts WHERE email = ?", (email,))
         row = cur.fetchone()
         fields = [
-            "first_name", "last_name", "full_name", "phone", "linkedin",
+            "first_name", "last_name", "full_name", "phone", "linkedin", "company_website",
             "organization", "role_title", "professional_category",
             "city", "country", "mandarin_speaker", "interests",
             "source", "notes", "tags",
