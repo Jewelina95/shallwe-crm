@@ -60,6 +60,17 @@ def infer_company_website(email: str | None, organization: str | None) -> str | 
     return None
 
 
+def normalize_profile_url(url: str | None) -> str | None:
+    s = _str(url)
+    if not s:
+        return None
+    if re.match(r"https?://", s):
+        return s
+    if re.match(r"(www\.|linkedin\.com|github\.com|x\.com|twitter\.com|scholar\.google\.)", s, re.I):
+        return "https://" + s
+    return None
+
+
 def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_desc: str):
     event_id = db.upsert_event(event_name, event_date, event_desc)
     inserted = 0
@@ -114,6 +125,7 @@ def import_luma_sheet(df: pd.DataFrame, event_name: str, event_date: str, event_
             "full_name": full_name,
             "phone": phone,
             "linkedin": linkedin,
+            "personal_website": normalize_profile_url(linkedin),
             "company_website": infer_company_website(email, organization),
             "organization": organization,
             "role_title": role_title,

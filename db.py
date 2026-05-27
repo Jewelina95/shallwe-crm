@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     full_name TEXT,
     phone TEXT,
     linkedin TEXT,
+    personal_website TEXT,
     company_website TEXT,
     organization TEXT,
     role_title TEXT,
@@ -119,6 +120,8 @@ def ensure_columns(conn):
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(contacts)").fetchall()}
     if "company_website" not in existing:
         conn.execute("ALTER TABLE contacts ADD COLUMN company_website TEXT")
+    if "personal_website" not in existing:
+        conn.execute("ALTER TABLE contacts ADD COLUMN personal_website TEXT")
 
 
 DEFAULT_TEMPLATES = [
@@ -151,7 +154,7 @@ def upsert_contact(data: dict) -> int:
         cur = conn.execute("SELECT id FROM contacts WHERE email = ?", (email,))
         row = cur.fetchone()
         fields = [
-            "first_name", "last_name", "full_name", "phone", "linkedin", "company_website",
+            "first_name", "last_name", "full_name", "phone", "linkedin", "personal_website", "company_website",
             "organization", "role_title", "professional_category",
             "city", "country", "mandarin_speaker", "interests",
             "source", "notes", "tags",

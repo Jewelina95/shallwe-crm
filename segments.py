@@ -45,6 +45,9 @@ def enriched_contacts() -> pd.DataFrame:
     df["organization"] = df["organization"].fillna("")
     if "company_website" not in df.columns:
         df["company_website"] = ""
+    if "personal_website" not in df.columns:
+        df["personal_website"] = ""
+    df["personal_website"] = df["personal_website"].fillna("")
     df["company_website"] = df["company_website"].fillna("")
     df["professional_category"] = df["professional_category"].fillna("")
     df["source"] = df["source"].fillna("")
@@ -124,7 +127,7 @@ def _re_escape(s: str) -> str:
 
 # Columns shown in UI tables and emitted to xlsx
 EXPORT_COLUMNS = [
-    "full_name", "email", "phone", "linkedin", "company_website",
+    "full_name", "email", "phone", "linkedin", "personal_website", "company_website",
     "professional_category", "organization", "role_title",
     "interests", "mandarin_speaker",
     "events_attended", "event_names", "approval_statuses", "checkin_count",
@@ -138,6 +141,7 @@ EXPORT_RENAME = {
     "email": "Email",
     "phone": "Phone",
     "linkedin": "LinkedIn",
+    "personal_website": "Personal Website",
     "company_website": "Company Website",
     "professional_category": "Professional Category",
     "organization": "Organization",

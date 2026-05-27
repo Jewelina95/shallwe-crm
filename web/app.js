@@ -86,6 +86,7 @@ function enrichContact(contact, attendance) {
     email: (contact.email || "").toLowerCase(),
     displayName: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ") || "(No name)",
     interestList,
+    personalWebsite: inferPersonalWebsite(contact),
     companyWebsite: inferCompanyWebsite(contact),
     persona,
     lifecycle,
@@ -224,7 +225,8 @@ function renderContacts() {
     <tr data-id="${c.id}">
       <td><strong>${escapeHtml(c.displayName)}</strong><small>${escapeHtml(c.email)}</small></td>
       <td>${linkCell(c.linkedin, "LinkedIn")}</td>
-      <td>${linkCell(c.companyWebsite, "Website")}</td>
+      <td>${linkCell(c.personalWebsite, "Personal")}</td>
+      <td>${linkCell(c.companyWebsite, "Company")}</td>
       <td>${badge(c.persona)}</td>
       <td>${badge(c.lifecycle)}</td>
       <td>${escapeHtml(c.organization || "")}<small>${escapeHtml(c.role_title || "")}</small></td>
@@ -278,7 +280,8 @@ function renderProfile() {
         <dt>Organization</dt><dd>${escapeHtml(c.organization || "-")}</dd>
         <dt>Role</dt><dd>${escapeHtml(c.role_title || "-")}</dd>
         <dt>LinkedIn</dt><dd>${c.linkedin ? `<a href="${escapeAttr(c.linkedin)}" target="_blank" rel="noreferrer">${escapeHtml(c.linkedin)}</a>` : "-"}</dd>
-        <dt>Website</dt><dd>${c.companyWebsite ? `<a href="${escapeAttr(c.companyWebsite)}" target="_blank" rel="noreferrer">${escapeHtml(c.companyWebsite)}</a>` : "-"}</dd>
+        <dt>Personal Site</dt><dd>${c.personalWebsite ? `<a href="${escapeAttr(c.personalWebsite)}" target="_blank" rel="noreferrer">${escapeHtml(c.personalWebsite)}</a>` : "-"}</dd>
+        <dt>Company Site</dt><dd>${c.companyWebsite ? `<a href="${escapeAttr(c.companyWebsite)}" target="_blank" rel="noreferrer">${escapeHtml(c.companyWebsite)}</a>` : "-"}</dd>
         <dt>Interests</dt><dd>${c.interestList.map(t => `<span class="mini-chip">${escapeHtml(t)}</span>`).join("") || "-"}</dd>
       </dl>
       <label>Stage
@@ -328,6 +331,7 @@ function exportCsv() {
     Email: c.email,
     "Audience Type": c.persona,
     LinkedIn: c.linkedin || "",
+    "Personal Website": c.personalWebsite || "",
     "Company / Org Website": c.companyWebsite || "",
     Stage: c.lifecycle,
     Engagement: c.engagement,
@@ -388,6 +392,16 @@ function inferCompanyWebsite(c) {
   if (email.includes("@")) {
     const domain = email.split("@").pop();
     if (domain && !personal.has(domain)) return "https://" + domain;
+  }
+  return "";
+}
+
+function inferPersonalWebsite(c) {
+  if (c.personal_website) return c.personal_website;
+  const linkedin = String(c.linkedin || "").trim();
+  if (linkedin && /^https?:\/\//.test(linkedin)) return linkedin;
+  if (linkedin && /^(www\.|linkedin\.com|github\.com|x\.com|twitter\.com|scholar\.google\.)/i.test(linkedin)) {
+    return "https://" + linkedin;
   }
   return "";
 }
