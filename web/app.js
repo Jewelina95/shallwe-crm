@@ -133,6 +133,7 @@ function render() {
   renderCharts();
   renderContacts();
   renderSegments();
+  renderProfilePicker();
   renderProfile();
   document.getElementById("dataMode").textContent = window.SHALLWE_PRIVATE_DATA
     ? `Private dataset loaded: ${contacts.length} contacts`
@@ -150,6 +151,10 @@ function setupControls() {
       activePreset = null;
       render();
     });
+  });
+  document.getElementById("profileSelect").addEventListener("change", event => {
+    selectedId = Number(event.target.value) || null;
+    renderProfile();
   });
   document.querySelectorAll(".nav").forEach(btn => {
     btn.addEventListener("click", () => switchView(btn.dataset.view));
@@ -238,10 +243,24 @@ function renderContacts() {
   document.querySelectorAll("#contactRows tr").forEach(row => {
     row.addEventListener("click", () => {
       selectedId = Number(row.dataset.id);
+      const select = document.getElementById("profileSelect");
+      if (select) select.value = String(selectedId);
       switchView("profile");
       renderProfile();
     });
   });
+}
+
+function renderProfilePicker() {
+  const select = document.getElementById("profileSelect");
+  if (!select) return;
+  const current = selectedId ? String(selectedId) : "";
+  const rows = [...contacts].sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+  select.innerHTML = `<option value="">Select a contact</option>` + rows.map(c => {
+    const label = `${c.displayName} · ${c.organization || c.email || ""}`;
+    return `<option value="${c.id}">${escapeHtml(label)}</option>`;
+  }).join("");
+  if (current && contacts.some(c => String(c.id) === current)) select.value = current;
 }
 
 function renderSegments() {
@@ -267,7 +286,7 @@ function renderProfile() {
   const c = contacts.find(x => x.id === selectedId);
   if (!c) {
     pane.className = "profile-empty";
-    pane.textContent = "Select a contact from Contacts.";
+    pane.textContent = "Choose a contact to view their CRM profile.";
     return;
   }
   pane.className = "profile";
