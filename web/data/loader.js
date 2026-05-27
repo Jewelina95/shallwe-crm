@@ -1,4 +1,5 @@
 (async function () {
+  window.SHALLWE_DATA_LOADER_PRESENT = true;
   try {
     const response = await fetch("data/contacts.private.js", { cache: "no-store" });
     if (response.ok) {
